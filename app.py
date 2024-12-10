@@ -161,14 +161,18 @@ def send_command(command):
         return False
 
 def generate_frames():
-    while True:
-        frame = camera.get_frame()
-        if frame is not None:
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-            time.sleep(0.5)
-        else:
-            time.sleep(0.5)
+    try:
+        while True:
+            frame = camera.get_frame()
+            if frame is not None:
+                yield (b'--frame\r\n'
+                      b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+                time.sleep(0.1)  # Limit to ~10 FPS
+            else:
+                time.sleep(0.1)
+    except GeneratorExit:
+        # Client disconnected
+        logger.info("Client disconnected from video stream")
 
 @app.route('/')
 def index():
@@ -182,8 +186,14 @@ def index():
 def video_feed():
     if camera.picam2 is None and not camera.initialize():
         return "Camera not initialized", 500
-    return Response(generate_frames(),
-                   mimetype='multipart/x-mixed-replace; boundary=frame')
+    
+    # Add headers to prevent caching
+    response = Response(generate_frames(),
+                       mimetype='multipart/x-mixed-replace; boundary=frame')
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @app.route('/connect', methods=['POST'])
 def connect():

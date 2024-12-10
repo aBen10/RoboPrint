@@ -6,6 +6,40 @@ let currentY = 0;
 let currentZ = 0;
 let joggingInterval;
 let connected = false;
+let videoStreamActive = false;
+let currentJogRequest = null;
+
+const videoElement = document.getElementById('camera-feed');
+
+function startVideoStream() {
+    if (!videoStreamActive) {
+        videoElement.src = '/video_feed';
+        videoStreamActive = true;
+    }
+}
+
+function stopVideoStream() {
+    if (videoStreamActive) {
+        videoElement.src = '';
+        videoStreamActive = false;
+    }
+}
+
+document.getElementById('toggle-video').addEventListener('click', function() {
+    if (videoStreamActive) {
+        stopVideoStream();
+        this.textContent = 'Start Camera Feed';
+    } else {
+        startVideoStream();
+        this.textContent = 'Stop Camera Feed';
+    }
+});
+
+// Start video stream when page loads
+window.addEventListener('load', startVideoStream);
+
+// Clean up stream when page unloads
+window.addEventListener('beforeunload', stopVideoStream);
 
 document.getElementById('reset-error').addEventListener('click', resetError);
 
@@ -24,6 +58,15 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Setup button listeners
     setupButtonListeners();
+});
+
+document.getElementById('toggle-video').addEventListener('click', function() {
+    const videoFeed = document.querySelector('.video-feed img');
+    if (videoFeed.style.display === 'none') {
+        videoFeed.style.display = 'block';
+    } else {
+        videoFeed.style.display = 'none';
+    }
 });
 
 function initializeUI() {
@@ -202,20 +245,39 @@ async function resetError() {
 
 async function sendJogCommand(x, y, z) {
     try {
+        // Cancel any pending jog request
+        if (currentJogRequest) {
+            currentJogRequest.abort();
+        }
+
+        // Create AbortController for this request
+        const controller = new AbortController();
+        currentJogRequest = controller;
+
         const response = await fetch('/jog', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ x, y, z })
+            body: JSON.stringify({ x, y, z }),
+            signal: controller.signal
         });
         
+        // Clear current request if completed
+        if (currentJogRequest === controller) {
+            currentJogRequest = null;
+        }
+
         const data = await response.json();
         if (!data.success) {
             console.error('Jog command failed:', data.error);
         }
     } catch (error) {
-        console.error('Error sending jog command:', error);
+        if (error.name === 'AbortError') {
+            console.log('Jog request cancelled');
+        } else {
+            console.error('Error sending jog command:', error);
+        }
     }
 }
 
@@ -288,9 +350,13 @@ async function updateSettings() {
     }
 }
 
-// Cleanup function for page unload
+// Update the cleanup function
 window.addEventListener('beforeunload', function() {
     if (connected) {
         stopRobot();
+    }
+    stopVideoStream();
+    if (currentJogRequest) {
+        currentJogRequest.abort();
     }
 });

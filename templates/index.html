@@ -24,12 +24,16 @@
             background-color: #000;
             border-radius: 10px;
             overflow: hidden;
+            position: relative;
         }
 
         .video-feed img {
             width: 100%;
             height: auto;
             display: block;
+            transform: translateZ(0);  /* Force hardware acceleration */
+            will-change: transform;    /* Optimize for changes */
+            pointer-events: none;      /* Prevent interaction with video */
         }
 
         .controls {
@@ -159,7 +163,8 @@
 <body>
     <div class="container">
         <div class="video-feed">
-            <img src="{{ url_for('video_feed') }}" alt="Robot Camera Feed">
+            <div class="loading-overlay">Loading camera feed...</div>
+            <img id="camera-feed" style="pointer-events: none;">
         </div>
 
         <div class="controls">
@@ -169,6 +174,7 @@
 
             <button id="connect">Connect Robot</button>
             <button id="reset-error" class="error-reset-btn">Reset Error</button>
+            <button id="toggle-video" class="video-toggle">Toggle Camera Feed</button>
 
             <div class="settings-panel">
                 <h3>Settings</h3>
