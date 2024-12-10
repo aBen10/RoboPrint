@@ -144,11 +144,23 @@ function setupButtonListeners() {
     document.getElementById('open-gripper').addEventListener('click', () => controlGripper('open'));
     document.getElementById('close-gripper').addEventListener('click', () => controlGripper('close'));
     
+    // X-axis controls
+    document.getElementById('x-plus').addEventListener('mousedown', () => startAxisJog('x', 1));
+    document.getElementById('x-plus').addEventListener('mouseup', stopAxisJog);
+    document.getElementById('x-minus').addEventListener('mousedown', () => startAxisJog('x', -1));
+    document.getElementById('x-minus').addEventListener('mouseup', stopAxisJog);
+
+    // Y-axis controls
+    document.getElementById('y-plus').addEventListener('mousedown', () => startAxisJog('y', 1));
+    document.getElementById('y-plus').addEventListener('mouseup', stopAxisJog);
+    document.getElementById('y-minus').addEventListener('mousedown', () => startAxisJog('y', -1));
+    document.getElementById('y-minus').addEventListener('mouseup', stopAxisJog);
+    
     // Z-axis controls
-    document.getElementById('z-up').addEventListener('mousedown', () => startZAxisJog(1));
-    document.getElementById('z-up').addEventListener('mouseup', stopZAxisJog);
-    document.getElementById('z-down').addEventListener('mousedown', () => startZAxisJog(-1));
-    document.getElementById('z-down').addEventListener('mouseup', stopZAxisJog);
+    document.getElementById('z-up').addEventListener('mousedown', () => startAxisJog('z', 1));
+    document.getElementById('z-up').addEventListener('mouseup', stopAxisJog);
+    document.getElementById('z-down').addEventListener('mousedown', () => startAxisJog('z', -1));
+    document.getElementById('z-down').addEventListener('mouseup', stopAxisJog);
     
     // Settings update
     document.getElementById('update-settings').addEventListener('click', updateSettings);
@@ -225,6 +237,29 @@ function startZAxisJog(direction) {
 }
 
 function stopZAxisJog() {
+    currentZ = 0;
+    sendJogCommand(currentX, currentY, currentZ);
+}
+
+function startAxisJog(axis, direction) {
+    switch(axis) {
+        case 'x':
+            currentX = direction;
+            break;
+        case 'y':
+            currentY = direction;
+            break;
+        case 'z':
+            currentZ = direction;
+            break;
+    }
+    sendJogCommand(currentX, currentY, currentZ);
+}
+
+function stopAxisJog() {
+    // Reset all values when any button is released
+    currentX = 0;
+    currentY = 0;
     currentZ = 0;
     sendJogCommand(currentX, currentY, currentZ);
 }
