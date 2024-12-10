@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meca500 Robot Control</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .video-feed {
+            flex: 1;
+            background-color: #000;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .video-feed img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .controls {
+            flex: 1;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .status {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #666;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px 0;
+            width: 100%;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .settings-panel {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+
+        .settings-group {
+            margin: 10px 0;
+        }
+
+        .settings-group input {
+            width: 100%;
+            padding: 5px;
+            margin-top: 5px;
+        }
+
+        .joystick-container {
+            width: 200px;
+            height: 200px;
+            background-color: #ddd;
+            border-radius: 50%;
+            position: relative;
+            margin: 20px auto;
+            border: 2px solid #999;
+        }
+
+        .joystick-knob {
+            width: 50px;
+            height: 50px;
+            background-color: #007bff;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+        }
+
+        .axis-controls {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+        }
+
+        .axis-group {
+            text-align: center;
+        }
+
+        .axis-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .gripper-controls {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        #stop {
+            background-color: #dc3545;
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+
+        #stop:hover {
+            background-color: #c82333;
+        }
+
+        .error-reset-btn {
+            background-color: #ff4444;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            margin: 10px 0;
+            cursor: pointer;
+            font-weight: bold;
+            display: block; /* Change from "none" to "block" */
+        }
+
+        .error-reset-btn:hover {
+            background-color: #cc0000;
+        }
+
+        #reset-error {
+            display: block; /* Change from "none" to "block" */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="video-feed">
+            <img src="{{ url_for('video_feed') }}" alt="Robot Camera Feed">
+        </div>
+
+        <div class="controls">
+            <div id="status" class="status">
+                Disconnected
+            </div>
+
+            <button id="connect">Connect Robot</button>
+            <button id="reset-error" class="error-reset-btn">Reset Error</button>
+
+            <div class="settings-panel">
+                <h3>Settings</h3>
+                <div class="settings-group">
+                    <label for="maxVelocity">Max Velocity (mm/s):</label>
+                    <input type="number" id="maxVelocity" value="20" min="1" max="100">
+                </div>
+                <div class="settings-group">
+                    <label for="timeout">Velocity Timeout (s):</label>
+                    <input type="number" id="timeout" value="0.05" min="0.01" max="1" step="0.01">
+                </div>
+                <button id="update-settings">Update Settings</button>
+            </div>
+
+            <div id="joystick" class="joystick-container">
+                <div id="knob" class="joystick-knob"></div>
+            </div>
+
+            <div class="axis-controls">
+                <div class="axis-group">
+                    <h4>X Axis</h4>
+                    <div class="axis-buttons">
+                        <button id="x-plus">X+</button>
+                        <button id="x-minus">X-</button>
+                    </div>
+                </div>
+
+                <div class="axis-group">
+                    <h4>Y Axis</h4>
+                    <div class="axis-buttons">
+                        <button id="y-plus">Y+</button>
+                        <button id="y-minus">Y-</button>
+                    </div>
+                </div>
+
+                <div class="axis-group">
+                    <h4>Z Axis</h4>
+                    <div class="axis-buttons">
+                        <button id="z-up">Z+</button>
+                        <button id="z-down">Z-</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="gripper-controls">
+                <button id="open-gripper">Open Gripper</button>
+                <button id="close-gripper">Close Gripper</button>
+            </div>
+
+            <button id="stop">STOP</button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
