@@ -308,6 +308,21 @@ def jog():
     except Exception as e:
         print(f"{Fore.RED}Jog command error: {e}{Style.RESET_ALL}")
         return jsonify({"success": False, "error": str(e)})
+    
+@app.route('/home_joints', methods=['POST'])
+def home_joints():
+    if not robot.is_connected:
+        return jsonify({"success": False, "error": "Not connected"})
+    
+    try:
+        # First stop any current motion
+        robot.send_command("MoveLinVelWrf(0, 0, 0, 0, 0, 0)")
+        # Move all joints to 0
+        success = robot.send_command("MoveJoints(0, 0, 0, 0, 0, 0)")
+        return jsonify({"success": success})
+    except Exception as e:
+        print(f"{Fore.RED}Home joints error: {e}{Style.RESET_ALL}")
+        return jsonify({"success": False, "error": str(e)})
 
 @app.route('/stop', methods=['POST'])
 def stop():
