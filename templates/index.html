@@ -48,17 +48,61 @@
             border-radius: 10px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
-        .status {
-            font-size: 1.2em;
-            font-weight: bold;
+        .status-panel {
+            display: flex;
+            gap: 10px;
             margin-bottom: 20px;
             padding: 10px;
-            border-radius: 5px;
-            text-align: center;
             background-color: #f8f9fa;
+            border-radius: 5px;
         }
-        .button-group {
-            margin: 15px 0;
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #ccc;
+        }
+        .status-dot.connected {
+            background-color: #28a745;
+            box-shadow: 0 0 5px #28a745;
+        }
+        .status-dot.error {
+            background-color: #dc3545;
+            box-shadow: 0 0 5px #dc3545;
+        }
+        .status-dot.disconnected {
+            background-color: #6c757d;
+        }
+        .error-panel {
+            display: none;
+            padding: 15px;
+            background-color: #fff3f3;
+            border: 1px solid #dc3545;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .error-panel.visible {
+            display: block;
+        }
+        .error-message {
+            color: #dc3545;
+            margin-bottom: 10px;
+        }
+        .error-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .error-actions button {
+            background-color: #dc3545;
+            flex: 1;
+        }
+        .error-actions button:hover {
+            background-color: #c82333;
         }
         button {
             background-color: #007bff;
@@ -70,7 +114,6 @@
             margin: 5px;
             transition: all 0.2s;
             font-size: 14px;
-            min-width: 100px;
         }
         button:hover {
             background-color: #0056b3;
@@ -83,15 +126,6 @@
             background-color: #cccccc;
             cursor: not-allowed;
             transform: none;
-        }
-        .error-reset-btn {
-            background-color: #ff4444;
-            display: none;
-            width: 100%;
-            margin: 10px 0;
-        }
-        .error-reset-btn:hover {
-            background-color: #cc0000;
         }
         #stop {
             background-color: #dc3545;
@@ -134,34 +168,45 @@
         <div class="video-feed">
             <img id="camera-feed" alt="Robot Camera Feed">
             <div id="stream-status" class="stream-status">Connecting...</div>
-            <div id="debug-info" style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px;">
-                Initializing...
-            </div>
         </div>
 
         <div class="controls">
-            <div id="status" class="status">Disconnected</div>
-            
-            <div class="button-group">
-                <button id="connect">Connect Robot</button>
-                <button id="reset-error" class="error-reset-btn">Reset Error</button>
+            <div class="status-panel">
+                <div class="status-indicator">
+                    <div id="robot-status-dot" class="status-dot disconnected"></div>
+                    <span id="robot-status-text">Robot: Disconnected</span>
+                </div>
+                <div class="status-indicator">
+                    <div id="stream-status-dot" class="status-dot disconnected"></div>
+                    <span id="stream-status-text">Camera: Connecting</span>
+                </div>
             </div>
+
+            <div id="error-panel" class="error-panel">
+                <div class="error-message">Robot Error Detected</div>
+                <div class="error-actions">
+                    <button id="reset-error">Reset Error</button>
+                    <button id="retry-connection">Retry Connection</button>
+                </div>
+            </div>
+
+            <button id="connect">Connect Robot</button>
 
             <div class="axis-controls">
                 <div class="axis-group">
                     <h3>X Axis</h3>
-                    <button id="x-plus" class="jog-btn">X+</button>
-                    <button id="x-minus" class="jog-btn">X-</button>
+                    <button id="x-plus">X+</button>
+                    <button id="x-minus">X-</button>
                 </div>
                 <div class="axis-group">
                     <h3>Y Axis</h3>
-                    <button id="y-plus" class="jog-btn">Y+</button>
-                    <button id="y-minus" class="jog-btn">Y-</button>
+                    <button id="y-plus">Y+</button>
+                    <button id="y-minus">Y-</button>
                 </div>
                 <div class="axis-group">
                     <h3>Z Axis</h3>
-                    <button id="z-plus" class="jog-btn">Z+</button>
-                    <button id="z-minus" class="jog-btn">Z-</button>
+                    <button id="z-plus">Z+</button>
+                    <button id="z-minus">Z-</button>
                 </div>
             </div>
 
@@ -173,10 +218,9 @@
             <button id="stop">EMERGENCY STOP</button>
         </div>
     </div>
-    <!-- Previous HTML remains the same, continuing from the script tag -->
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script>
-        // Initialize socket connection with reconnection options
         const socket = io({
             reconnection: true,
             reconnectionDelay: 1000,
@@ -184,116 +228,138 @@
             reconnectionAttempts: Infinity
         });
 
-        // DOM Elements
-        const videoElement = document.getElementById('camera-feed');
-        const streamStatus = document.getElementById('stream-status');
-        const statusElement = document.getElementById('status');
-        const errorResetButton = document.getElementById('reset-error');
-        const connectButton = document.getElementById('connect');
-        
-        // State tracking
-        let isConnected = false;
         let frameCount = 0;
         let lastFrameTime = Date.now();
-        let frameReceived = 0;
-        
-        // Socket event handlers
-        socket.on('connect', () => {
-            streamStatus.textContent = 'Connected';
-            streamStatus.style.backgroundColor = 'rgba(0,128,0,0.7)';
-        });
+        let isRobotConnected = false;
 
-        socket.on('disconnect', () => {
-            streamStatus.textContent = 'Disconnected';
-            streamStatus.style.backgroundColor = 'rgba(255,0,0,0.7)';
-        });
-
-        socket.on('video_frame', function(data) {
-            frameReceived++;
-            const currentTime = Date.now();
+        // Status management
+        function updateRobotStatus(status) {
+            const statusDot = document.getElementById('robot-status-dot');
+            const statusText = document.getElementById('robot-status-text');
+            const errorPanel = document.getElementById('error-panel');
             
-            // Update debug info
-            const debugInfo = document.getElementById('debug-info');
-            debugInfo.textContent = `Frames: ${frameReceived}, Last: ${new Date().toLocaleTimeString()}`;
+            statusDot.className = 'status-dot';
+            isRobotConnected = status === 'connected';
             
-            // Create new image to prevent flickering
-            const img = new Image();
-            img.onload = function() {
-                videoElement.src = img.src;
-                debugInfo.textContent += ', Displayed';
-            };
-            img.onerror = function() {
-                debugInfo.textContent += ', Error loading';
-            };
-            img.src = 'data:image/jpeg;base64,' + data.frame;
-        });
+            switch(status) {
+                case 'connected':
+                    statusDot.classList.add('connected');
+                    statusText.textContent = 'Robot: Connected';
+                    errorPanel.classList.remove('visible');
+                    break;
+                case 'error':
+                    statusDot.classList.add('error');
+                    statusText.textContent = 'Robot: Error';
+                    errorPanel.classList.add('visible');
+                    break;
+                default:
+                    statusDot.classList.add('disconnected');
+                    statusText.textContent = 'Robot: Disconnected';
+                    errorPanel.classList.remove('visible');
+            }
+            toggleControlButtons(!isRobotConnected);
+        }
 
-        socket.on('robot_status', function(data) {
-            isConnected = data.status === 'connected';
-            statusElement.textContent = data.status === 'error' ? 'Error State' : 'Connected';
-            statusElement.style.color = data.status === 'error' ? '#dc3545' : '#28a745';
-            errorResetButton.style.display = data.status === 'error' ? 'block' : 'none';
-            toggleControlButtons(!isConnected);
-        });
+        function updateStreamStatus(status) {
+            const statusDot = document.getElementById('stream-status-dot');
+            const statusText = document.getElementById('stream-status-text');
+            
+            statusDot.className = 'status-dot';
+            
+            switch(status) {
+                case 'connected':
+                    statusDot.classList.add('connected');
+                    statusText.textContent = 'Camera: Connected';
+                    break;
+                case 'error':
+                    statusDot.classList.add('error');
+                    statusText.textContent = 'Camera: Error';
+                    break;
+                default:
+                    statusDot.classList.add('disconnected');
+                    statusText.textContent = 'Camera: Disconnected';
+            }
+        }
 
-        // Helper functions
         function toggleControlButtons(disabled) {
-            document.querySelectorAll('button:not(#connect)').forEach(button => {
+            const buttons = document.querySelectorAll('button:not(#connect):not(#reset-error):not(#retry-connection)');
+            buttons.forEach(button => {
                 button.disabled = disabled;
             });
         }
 
+        // Socket event handlers
+        socket.on('connect', () => {
+            updateStreamStatus('connected');
+        });
+
+        socket.on('disconnect', () => {
+            updateStreamStatus('disconnected');
+            updateRobotStatus('disconnected');
+        });
+
+        socket.on('robot_status', function(data) {
+            updateRobotStatus(data.status);
+        });
+
+        socket.on('video_frame', function(data) {
+            frameCount++;
+            const currentTime = Date.now();
+            
+            if (frameCount % 30 === 0) {
+                const fps = Math.round(30000 / (currentTime - lastFrameTime));
+                document.getElementById('stream-status').textContent = `${fps} FPS`;
+                lastFrameTime = currentTime;
+            }
+
+            const img = new Image();
+            img.onload = function() {
+                document.getElementById('camera-feed').src = img.src;
+            };
+            img.src = 'data:image/jpeg;base64,' + data.frame;
+        });
+
+        // API request helper
         async function sendRequest(endpoint, data = {}) {
             try {
                 const response = await fetch(endpoint, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(data)
                 });
-                const result = await response.json();
-                
-                if (!result.success && result.error) {
-                    console.error(`Error from ${endpoint}:`, result.error);
-                }
-                
-                return result;
+                return await response.json();
             } catch (error) {
                 console.error(`Request to ${endpoint} failed:`, error);
                 return { success: false, error: error.message };
             }
         }
 
-        // Button event handlers
-        connectButton.addEventListener('click', async () => {
-            connectButton.disabled = true;
-            const result = await sendRequest('/connect');
-            connectButton.disabled = false;
-            
-            if (result.success) {
-                isConnected = true;
-                statusElement.textContent = 'Connected';
-                statusElement.style.color = '#28a745';
-                toggleControlButtons(false);
-            } else {
-                statusElement.textContent = 'Connection Failed';
-                statusElement.style.color = '#dc3545';
-            }
-        });
-
-        errorResetButton.addEventListener('click', async () => {
+        // Error handling
+        async function handleErrorReset() {
             const result = await sendRequest('/reset_error');
-            if (result.success) {
-                errorResetButton.style.display = 'none';
+            if (!result.success) {
+                alert('Failed to reset error: ' + (result.error || 'Unknown error'));
+            }
+        }
+
+        // Event listeners
+        document.getElementById('connect').addEventListener('click', async () => {
+            const button = document.getElementById('connect');
+            button.disabled = true;
+            const result = await sendRequest('/connect');
+            button.disabled = false;
+            
+            if (!result.success) {
+                alert('Failed to connect to robot: ' + (result.error || 'Unknown error'));
             }
         });
 
-        document.getElementById('stop').addEventListener('click', () => {
-            sendRequest('/stop');
+        document.getElementById('reset-error').addEventListener('click', handleErrorReset);
+        document.getElementById('retry-connection').addEventListener('click', () => {
+            document.getElementById('connect').click();
         });
 
-        // Jog control setup
+        // Jog controls
         const jogAxes = [
             { axis: 'x', directions: ['plus', 'minus'] },
             { axis: 'y', directions: ['plus', 'minus'] },
@@ -333,13 +399,17 @@
             sendRequest('/gripper', { action: 'close' });
         });
 
+        document.getElementById('stop').addEventListener('click', () => {
+            sendRequest('/stop');
+        });
+
         // Cleanup on page unload
         window.addEventListener('beforeunload', () => {
             sendRequest('/stop');
         });
 
         // Initialize UI
-        toggleControlButtons(true);  // Disable controls until connected
+        toggleControlButtons(true);
     </script>
 </body>
 </html>

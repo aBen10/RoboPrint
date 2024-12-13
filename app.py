@@ -263,13 +263,13 @@ def index():
 def connect():
     return jsonify({"success": robot.connect()})
 
-@app.route('/reset_error', methods=['POST'])
-def reset_error():
-    if not robot.is_connected:
-        return jsonify({"success": False, "error": "Not connected"})
-    success = (robot.send_command("ResetError") and 
-              robot.send_command("ResumeMotion"))
-    return jsonify({"success": success})
+# @app.route('/reset_error', methods=['POST'])
+# def reset_error():
+#     if not robot.is_connected:
+#         return jsonify({"success": False, "error": "Not connected"})
+#     success = (robot.send_command("ResetError") and 
+#               robot.send_command("ResumeMotion"))
+#     return jsonify({"success": success})
 
 @app.route('/jog', methods=['POST'])
 def jog():
@@ -313,6 +313,24 @@ def gripper():
     except Exception as e:
         print(f"{Fore.RED}Gripper command error: {e}{Style.RESET_ALL}")
         return jsonify({"success": False, "error": str(e)})
+    
+@app.route('/reset_error', methods=['POST'])
+def reset_error():
+    if not robot.is_connected:
+        return jsonify({"success": False, "error": "Robot not connected"})
+    
+    try:
+        # First send ResetError command
+        success = robot.send_command("ResetError")
+        if success:
+            # Then send ResumeMotion command
+            success = robot.send_command("ResumeMotion")
+            print(f"{Fore.GREEN}Reset error and resumed motion{Style.RESET_ALL}")
+        return jsonify({"success": success})
+    except Exception as e:
+        print(f"{Fore.RED}Error resetting robot: {e}{Style.RESET_ALL}")
+        return jsonify({"success": False, "error": str(e)})
+
 
 def cleanup():
     print(f"{Fore.YELLOW}Cleaning up resources...{Style.RESET_ALL}")
