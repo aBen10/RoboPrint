@@ -200,9 +200,11 @@ class RobotConnection:
 
     def jog(self, x, y, z):
         with self.settings_lock:
+            # Scale the input values (-1 to 1) by the current jog velocity
             x_vel = float(x) * self.jog_velocity
             y_vel = float(y) * self.jog_velocity
             z_vel = float(z) * self.jog_velocity
+            
             return self.send_command(f"MoveLinVelWrf({x_vel}, {y_vel}, {z_vel}, 0, 0, 0)")
 
     def _monitor_status(self):

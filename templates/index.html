@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,12 +12,14 @@
             padding: 20px;
             background-color: #f0f0f0;
         }
+
         .container {
             display: flex;
             gap: 20px;
             max-width: 1200px;
             margin: 0 auto;
         }
+
         .video-feed {
             flex: 1;
             background-color: #000;
@@ -25,29 +28,33 @@
             position: relative;
             aspect-ratio: 4/3;
         }
+
         .video-feed img {
             width: 100%;
             height: 100%;
             object-fit: cover;
             display: block;
         }
+
         .stream-status {
             position: absolute;
             top: 10px;
             right: 10px;
-            background: rgba(0,0,0,0.7);
+            background: rgba(0, 0, 0, 0.7);
             color: white;
             padding: 5px 10px;
             border-radius: 5px;
             font-size: 14px;
         }
+
         .controls {
             flex: 1;
             background-color: white;
             padding: 20px;
             border-radius: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
+
         .status-panel {
             display: flex;
             gap: 10px;
@@ -56,28 +63,34 @@
             background-color: #f8f9fa;
             border-radius: 5px;
         }
+
         .status-indicator {
             display: flex;
             align-items: center;
             gap: 5px;
         }
+
         .status-dot {
             width: 12px;
             height: 12px;
             border-radius: 50%;
             background-color: #ccc;
         }
+
         .status-dot.connected {
             background-color: #28a745;
             box-shadow: 0 0 5px #28a745;
         }
+
         .status-dot.error {
             background-color: #dc3545;
             box-shadow: 0 0 5px #dc3545;
         }
+
         .status-dot.disconnected {
             background-color: #6c757d;
         }
+
         .error-panel {
             display: none;
             padding: 15px;
@@ -86,30 +99,37 @@
             border-radius: 5px;
             margin: 10px 0;
         }
+
         .error-panel.visible {
             display: block;
         }
+
         .error-message {
             color: #dc3545;
             margin-bottom: 10px;
         }
+
         .error-actions {
             display: flex;
             gap: 10px;
         }
+
         .error-actions button {
             background-color: #dc3545;
             flex: 1;
         }
+
         .error-actions button:hover {
             background-color: #c82333;
         }
+
         .settings-panel {
             margin: 15px 0;
             background-color: #f8f9fa;
             border-radius: 5px;
             overflow: hidden;
         }
+
         .settings-toggle {
             width: 100%;
             display: flex;
@@ -122,27 +142,34 @@
             transition: background-color 0.2s;
             color: #495057;
         }
+
         .settings-toggle:hover {
             background-color: #dee2e6;
         }
+
         .settings-toggle .chevron {
             transition: transform 0.2s;
         }
+
         .settings-toggle.open .chevron {
             transform: rotate(180deg);
         }
+
         .settings-content {
             padding: 15px;
             border-top: 1px solid #dee2e6;
         }
+
         .setting-group {
             margin-bottom: 15px;
         }
+
         .setting-group label {
             display: block;
             margin-bottom: 5px;
             color: #495057;
         }
+
         .setting-group input {
             width: 100%;
             padding: 8px;
@@ -150,11 +177,13 @@
             border-radius: 4px;
             font-size: 14px;
         }
+
         .setting-group input:focus {
             outline: none;
             border-color: #80bdff;
-            box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, .25);
         }
+
         button {
             background-color: #007bff;
             color: white;
@@ -166,26 +195,32 @@
             transition: all 0.2s;
             font-size: 14px;
         }
+
         button:hover {
             background-color: #0056b3;
             transform: translateY(-1px);
         }
+
         button:active {
             transform: translateY(1px);
         }
+
         button:disabled {
             background-color: #cccccc;
             cursor: not-allowed;
             transform: none;
         }
+
         #update-settings {
             width: 100%;
             background-color: #28a745;
             margin: 10px 0 0 0;
         }
+
         #update-settings:hover {
             background-color: #218838;
         }
+
         #stop {
             background-color: #dc3545;
             font-size: 1.2em;
@@ -193,9 +228,11 @@
             margin-top: 20px;
             padding: 15px;
         }
+
         #stop:hover {
             background-color: #c82333;
         }
+
         .axis-controls {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -205,23 +242,28 @@
             background-color: #f8f9fa;
             border-radius: 5px;
         }
+
         .axis-group {
             text-align: center;
         }
+
         .axis-group h3 {
             margin: 0 0 10px 0;
             color: #666;
         }
+
         .gripper-controls {
             display: flex;
             gap: 10px;
             margin: 20px 0;
         }
+
         .gripper-controls button {
             flex: 1;
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="video-feed">
@@ -255,7 +297,7 @@
                 <button id="settings-toggle" class="settings-toggle">
                     <span>Settings</span>
                     <svg class="chevron" viewBox="0 0 24 24" width="24" height="24">
-                        <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2"/>
+                        <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" />
                     </svg>
                 </button>
                 <div class="settings-content" style="display: none;">
@@ -314,17 +356,19 @@
             jog_velocity: 20,
             velocity_timeout: 0.05
         };
+        let activeJogInterval = null;
+        const JOG_INTERVAL_MS = 50;
 
         // Status management
         function updateRobotStatus(status) {
             const statusDot = document.getElementById('robot-status-dot');
             const statusText = document.getElementById('robot-status-text');
             const errorPanel = document.getElementById('error-panel');
-            
+
             statusDot.className = 'status-dot';
             isRobotConnected = status === 'connected';
-            
-            switch(status) {
+
+            switch (status) {
                 case 'connected':
                     statusDot.classList.add('connected');
                     statusText.textContent = 'Robot: Connected';
@@ -346,10 +390,10 @@
         function updateStreamStatus(status) {
             const statusDot = document.getElementById('stream-status-dot');
             const statusText = document.getElementById('stream-status-text');
-            
+
             statusDot.className = 'status-dot';
-            
-            switch(status) {
+
+            switch (status) {
                 case 'connected':
                     statusDot.classList.add('connected');
                     statusText.textContent = 'Camera: Connected';
@@ -365,18 +409,22 @@
         }
 
         function toggleControlButtons(disabled) {
-            const buttons = document.querySelectorAll('button:not(#connect):not(#reset-error):not(#retry-connection):not(#settings-toggle):not(#update-settings)');
-            buttons.forEach(button => {
-                button.disabled = disabled;
-            });
+        const buttons = document.querySelectorAll('button:not(#connect):not(#reset-error):not(#retry-connection):not(#settings-toggle):not(#update-settings)');
+        buttons.forEach(button => {
+            button.disabled = disabled;
+        });
+        
+        if (disabled) {
+            stopJogging();
         }
+    }
 
         // Settings management
         async function loadSettings() {
             try {
                 const response = await fetch('/settings');
                 const settings = await response.json();
-                
+
                 document.getElementById('jog-velocity').value = settings.jog_velocity;
                 document.getElementById('velocity-timeout').value = settings.velocity_timeout;
                 currentSettings = settings;
@@ -426,7 +474,7 @@
             try {
                 const response = await fetch(endpoint, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
                 });
                 return await response.json();
@@ -447,14 +495,14 @@
             updateRobotStatus('disconnected');
         });
 
-        socket.on('robot_status', function(data) {
+        socket.on('robot_status', function (data) {
             updateRobotStatus(data.status);
         });
 
-        socket.on('video_frame', function(data) {
+        socket.on('video_frame', function (data) {
             frameCount++;
             const currentTime = Date.now();
-            
+
             if (frameCount % 30 === 0) {
                 const fps = Math.round(30000 / (currentTime - lastFrameTime));
                 document.getElementById('stream-status').textContent = `${fps} FPS`;
@@ -462,14 +510,14 @@
             }
 
             const img = new Image();
-            img.onload = function() {
+            img.onload = function () {
                 document.getElementById('camera-feed').src = img.src;
             };
             img.src = 'data:image/jpeg;base64,' + data.frame;
         });
 
         // Event listeners
-        document.getElementById('settings-toggle').addEventListener('click', function() {
+        document.getElementById('settings-toggle').addEventListener('click', function () {
             const content = document.querySelector('.settings-content');
             const isHidden = content.style.display === 'none';
             content.style.display = isHidden ? 'block' : 'none';
@@ -481,7 +529,7 @@
             button.disabled = true;
             const result = await sendRequest('/connect');
             button.disabled = false;
-            
+
             if (!result.success) {
                 alert('Failed to connect to robot: ' + (result.error || 'Unknown error'));
             }
@@ -507,28 +555,62 @@
             { axis: 'z', directions: ['plus', 'minus'] }
         ];
 
-        jogAxes.forEach(({axis, directions}) => {
+        function startJogging(jogData) {
+            // Clear any existing interval
+            stopJogging();
+
+            // Send initial jog command
+            sendRequest('/jog', jogData);
+
+            // Set up interval for continuous jogging
+            activeJogInterval = setInterval(() => {
+                sendRequest('/jog', jogData);
+            }, JOG_INTERVAL_MS);
+        }
+
+        function stopJogging() {
+            if (activeJogInterval) {
+                clearInterval(activeJogInterval);
+                activeJogInterval = null;
+            }
+            sendRequest('/jog', { x: 0, y: 0, z: 0 });
+        }
+
+        jogAxes.forEach(({ axis, directions }) => {
             directions.forEach(direction => {
                 const button = document.getElementById(`${axis}-${direction}`);
                 const value = direction === 'plus' ? 1 : -1;
-                
+
+                const jogData = {
+                    x: axis === 'x' ? value : 0,
+                    y: axis === 'y' ? value : 0,
+                    z: axis === 'z' ? value : 0
+                };
+
+                // Mouse events
                 button.addEventListener('mousedown', () => {
-                    const jogData = {
-                        x: axis === 'x' ? value : 0,
-                        y: axis === 'y' ? value : 0,
-                        z: axis === 'z' ? value : 0
-                    };
-                    sendRequest('/jog', jogData);
+                    startJogging(jogData);
                 });
 
-                button.addEventListener('mouseup', () => {
-                    sendRequest('/jog', { x: 0, y: 0, z: 0 });
+                button.addEventListener('mouseup', stopJogging);
+                button.addEventListener('mouseleave', stopJogging);
+
+                // Touch events for mobile support
+                button.addEventListener('touchstart', (e) => {
+                    e.preventDefault();  // Prevent mouse events from firing
+                    startJogging(jogData);
                 });
 
-                button.addEventListener('mouseleave', () => {
-                    sendRequest('/jog', { x: 0, y: 0, z: 0 });
+                button.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    stopJogging();
                 });
             });
+        });
+
+        window.addEventListener('beforeunload', () => {
+            stopJogging();
+            sendRequest('/stop');
         });
 
         // Gripper controls
@@ -554,4 +636,5 @@
         loadSettings();
     </script>
 </body>
+
 </html>
