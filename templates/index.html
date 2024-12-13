@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meca500 Robot Control</title>
+    <title>Robot Control Interface</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -11,31 +11,36 @@
             padding: 20px;
             background-color: #f0f0f0;
         }
-
         .container {
             display: flex;
             gap: 20px;
             max-width: 1200px;
             margin: 0 auto;
         }
-
         .video-feed {
             flex: 1;
             background-color: #000;
             border-radius: 10px;
             overflow: hidden;
             position: relative;
+            aspect-ratio: 4/3;
         }
-
         .video-feed img {
             width: 100%;
-            height: auto;
+            height: 100%;
+            object-fit: cover;
             display: block;
-            transform: translateZ(0);  /* Force hardware acceleration */
-            will-change: transform;    /* Optimize for changes */
-            pointer-events: none;      /* Prevent interaction with video */
         }
-
+        .stream-status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
         .controls {
             flex: 1;
             background-color: white;
@@ -43,179 +48,120 @@
             border-radius: 10px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
-
         .status {
             font-size: 1.2em;
             font-weight: bold;
             margin-bottom: 20px;
-            color: #666;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            background-color: #f8f9fa;
         }
-
+        .button-group {
+            margin: 15px 0;
+        }
         button {
             background-color: #007bff;
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 12px 20px;
             border-radius: 5px;
             cursor: pointer;
-            margin: 5px 0;
-            width: 100%;
-            transition: background-color 0.2s;
+            margin: 5px;
+            transition: all 0.2s;
+            font-size: 14px;
+            min-width: 100px;
         }
-
         button:hover {
             background-color: #0056b3;
+            transform: translateY(-1px);
         }
-
-        .settings-panel {
+        button:active {
+            transform: translateY(1px);
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .error-reset-btn {
+            background-color: #ff4444;
+            display: none;
+            width: 100%;
+            margin: 10px 0;
+        }
+        .error-reset-btn:hover {
+            background-color: #cc0000;
+        }
+        #stop {
+            background-color: #dc3545;
+            font-size: 1.2em;
+            width: 100%;
+            margin-top: 20px;
+            padding: 15px;
+        }
+        #stop:hover {
+            background-color: #c82333;
+        }
+        .axis-controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
             margin: 20px 0;
             padding: 15px;
             background-color: #f8f9fa;
             border-radius: 5px;
         }
-
-        .settings-group {
-            margin: 10px 0;
-        }
-
-        .settings-group input {
-            width: 100%;
-            padding: 5px;
-            margin-top: 5px;
-        }
-
-        .joystick-container {
-            width: 200px;
-            height: 200px;
-            background-color: #ddd;
-            border-radius: 50%;
-            position: relative;
-            margin: 20px auto;
-            border: 2px solid #999;
-        }
-
-        .joystick-knob {
-            width: 50px;
-            height: 50px;
-            background-color: #007bff;
-            border-radius: 50%;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            cursor: pointer;
-        }
-
-        .axis-controls {
-            display: flex;
-            justify-content: space-around;
-            margin: 20px 0;
-        }
-
         .axis-group {
             text-align: center;
         }
-
-        .axis-buttons {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
+        .axis-group h3 {
+            margin: 0 0 10px 0;
+            color: #666;
         }
-
         .gripper-controls {
             display: flex;
             gap: 10px;
             margin: 20px 0;
         }
-
-        #stop {
-            background-color: #dc3545;
-            font-size: 1.2em;
-            font-weight: bold;
-            margin-top: 20px;
-        }
-
-        #stop:hover {
-            background-color: #c82333;
-        }
-
-        .error-reset-btn {
-            background-color: #ff4444;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            margin: 10px 0;
-            cursor: pointer;
-            font-weight: bold;
-            display: block; /* Change from "none" to "block" */
-        }
-
-        .error-reset-btn:hover {
-            background-color: #cc0000;
-        }
-
-        #reset-error {
-            display: block; /* Change from "none" to "block" */
+        .gripper-controls button {
+            flex: 1;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="video-feed">
-            <div class="loading-overlay">Loading camera feed...</div>
-            <img id="camera-feed" style="pointer-events: none;">
+            <img id="camera-feed" alt="Robot Camera Feed">
+            <div id="stream-status" class="stream-status">Connecting...</div>
+            <div id="debug-info" style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px;">
+                Initializing...
+            </div>
         </div>
 
         <div class="controls">
-            <div id="status" class="status">
-                Disconnected
-            </div>
-
-            <button id="connect">Connect Robot</button>
-            <button id="reset-error" class="error-reset-btn">Reset Error</button>
-            <button id="toggle-video" class="video-toggle">Toggle Camera Feed</button>
-
-            <div class="settings-panel">
-                <h3>Settings</h3>
-                <div class="settings-group">
-                    <label for="maxVelocity">Max Velocity (mm/s):</label>
-                    <input type="number" id="maxVelocity" value="20" min="1" max="100">
-                </div>
-                <div class="settings-group">
-                    <label for="timeout">Velocity Timeout (s):</label>
-                    <input type="number" id="timeout" value="0.05" min="0.01" max="1" step="0.01">
-                </div>
-                <button id="update-settings">Update Settings</button>
-            </div>
-
-            <div id="joystick" class="joystick-container">
-                <div id="knob" class="joystick-knob"></div>
+            <div id="status" class="status">Disconnected</div>
+            
+            <div class="button-group">
+                <button id="connect">Connect Robot</button>
+                <button id="reset-error" class="error-reset-btn">Reset Error</button>
             </div>
 
             <div class="axis-controls">
                 <div class="axis-group">
-                    <h4>X Axis</h4>
-                    <div class="axis-buttons">
-                        <button id="x-plus">X+</button>
-                        <button id="x-minus">X-</button>
-                    </div>
+                    <h3>X Axis</h3>
+                    <button id="x-plus" class="jog-btn">X+</button>
+                    <button id="x-minus" class="jog-btn">X-</button>
                 </div>
-
                 <div class="axis-group">
-                    <h4>Y Axis</h4>
-                    <div class="axis-buttons">
-                        <button id="y-plus">Y+</button>
-                        <button id="y-minus">Y-</button>
-                    </div>
+                    <h3>Y Axis</h3>
+                    <button id="y-plus" class="jog-btn">Y+</button>
+                    <button id="y-minus" class="jog-btn">Y-</button>
                 </div>
-
                 <div class="axis-group">
-                    <h4>Z Axis</h4>
-                    <div class="axis-buttons">
-                        <button id="z-up">Z+</button>
-                        <button id="z-down">Z-</button>
-                    </div>
+                    <h3>Z Axis</h3>
+                    <button id="z-plus" class="jog-btn">Z+</button>
+                    <button id="z-minus" class="jog-btn">Z-</button>
                 </div>
             </div>
 
@@ -224,12 +170,176 @@
                 <button id="close-gripper">Close Gripper</button>
             </div>
 
-            <button id="stop">STOP</button>
+            <button id="stop">EMERGENCY STOP</button>
         </div>
     </div>
-
-    <!-- Scripts -->
+    <!-- Previous HTML remains the same, continuing from the script tag -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        // Initialize socket connection with reconnection options
+        const socket = io({
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            reconnectionAttempts: Infinity
+        });
+
+        // DOM Elements
+        const videoElement = document.getElementById('camera-feed');
+        const streamStatus = document.getElementById('stream-status');
+        const statusElement = document.getElementById('status');
+        const errorResetButton = document.getElementById('reset-error');
+        const connectButton = document.getElementById('connect');
+        
+        // State tracking
+        let isConnected = false;
+        let frameCount = 0;
+        let lastFrameTime = Date.now();
+        let frameReceived = 0;
+        
+        // Socket event handlers
+        socket.on('connect', () => {
+            streamStatus.textContent = 'Connected';
+            streamStatus.style.backgroundColor = 'rgba(0,128,0,0.7)';
+        });
+
+        socket.on('disconnect', () => {
+            streamStatus.textContent = 'Disconnected';
+            streamStatus.style.backgroundColor = 'rgba(255,0,0,0.7)';
+        });
+
+        socket.on('video_frame', function(data) {
+            frameReceived++;
+            const currentTime = Date.now();
+            
+            // Update debug info
+            const debugInfo = document.getElementById('debug-info');
+            debugInfo.textContent = `Frames: ${frameReceived}, Last: ${new Date().toLocaleTimeString()}`;
+            
+            // Create new image to prevent flickering
+            const img = new Image();
+            img.onload = function() {
+                videoElement.src = img.src;
+                debugInfo.textContent += ', Displayed';
+            };
+            img.onerror = function() {
+                debugInfo.textContent += ', Error loading';
+            };
+            img.src = 'data:image/jpeg;base64,' + data.frame;
+        });
+
+        socket.on('robot_status', function(data) {
+            isConnected = data.status === 'connected';
+            statusElement.textContent = data.status === 'error' ? 'Error State' : 'Connected';
+            statusElement.style.color = data.status === 'error' ? '#dc3545' : '#28a745';
+            errorResetButton.style.display = data.status === 'error' ? 'block' : 'none';
+            toggleControlButtons(!isConnected);
+        });
+
+        // Helper functions
+        function toggleControlButtons(disabled) {
+            document.querySelectorAll('button:not(#connect)').forEach(button => {
+                button.disabled = disabled;
+            });
+        }
+
+        async function sendRequest(endpoint, data = {}) {
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                
+                if (!result.success && result.error) {
+                    console.error(`Error from ${endpoint}:`, result.error);
+                }
+                
+                return result;
+            } catch (error) {
+                console.error(`Request to ${endpoint} failed:`, error);
+                return { success: false, error: error.message };
+            }
+        }
+
+        // Button event handlers
+        connectButton.addEventListener('click', async () => {
+            connectButton.disabled = true;
+            const result = await sendRequest('/connect');
+            connectButton.disabled = false;
+            
+            if (result.success) {
+                isConnected = true;
+                statusElement.textContent = 'Connected';
+                statusElement.style.color = '#28a745';
+                toggleControlButtons(false);
+            } else {
+                statusElement.textContent = 'Connection Failed';
+                statusElement.style.color = '#dc3545';
+            }
+        });
+
+        errorResetButton.addEventListener('click', async () => {
+            const result = await sendRequest('/reset_error');
+            if (result.success) {
+                errorResetButton.style.display = 'none';
+            }
+        });
+
+        document.getElementById('stop').addEventListener('click', () => {
+            sendRequest('/stop');
+        });
+
+        // Jog control setup
+        const jogAxes = [
+            { axis: 'x', directions: ['plus', 'minus'] },
+            { axis: 'y', directions: ['plus', 'minus'] },
+            { axis: 'z', directions: ['plus', 'minus'] }
+        ];
+
+        jogAxes.forEach(({axis, directions}) => {
+            directions.forEach(direction => {
+                const button = document.getElementById(`${axis}-${direction}`);
+                const value = direction === 'plus' ? 1 : -1;
+                
+                button.addEventListener('mousedown', () => {
+                    const jogData = {
+                        x: axis === 'x' ? value : 0,
+                        y: axis === 'y' ? value : 0,
+                        z: axis === 'z' ? value : 0
+                    };
+                    sendRequest('/jog', jogData);
+                });
+
+                button.addEventListener('mouseup', () => {
+                    sendRequest('/jog', { x: 0, y: 0, z: 0 });
+                });
+
+                button.addEventListener('mouseleave', () => {
+                    sendRequest('/jog', { x: 0, y: 0, z: 0 });
+                });
+            });
+        });
+
+        // Gripper controls
+        document.getElementById('open-gripper').addEventListener('click', () => {
+            sendRequest('/gripper', { action: 'open' });
+        });
+
+        document.getElementById('close-gripper').addEventListener('click', () => {
+            sendRequest('/gripper', { action: 'close' });
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            sendRequest('/stop');
+        });
+
+        // Initialize UI
+        toggleControlButtons(true);  // Disable controls until connected
+    </script>
 </body>
 </html>
