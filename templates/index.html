@@ -104,6 +104,57 @@
         .error-actions button:hover {
             background-color: #c82333;
         }
+        .settings-panel {
+            margin: 15px 0;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .settings-toggle {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background-color: #e9ecef;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            color: #495057;
+        }
+        .settings-toggle:hover {
+            background-color: #dee2e6;
+        }
+        .settings-toggle .chevron {
+            transition: transform 0.2s;
+        }
+        .settings-toggle.open .chevron {
+            transform: rotate(180deg);
+        }
+        .settings-content {
+            padding: 15px;
+            border-top: 1px solid #dee2e6;
+        }
+        .setting-group {
+            margin-bottom: 15px;
+        }
+        .setting-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #495057;
+        }
+        .setting-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .setting-group input:focus {
+            outline: none;
+            border-color: #80bdff;
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+        }
         button {
             background-color: #007bff;
             color: white;
@@ -126,6 +177,14 @@
             background-color: #cccccc;
             cursor: not-allowed;
             transform: none;
+        }
+        #update-settings {
+            width: 100%;
+            background-color: #28a745;
+            margin: 10px 0 0 0;
+        }
+        #update-settings:hover {
+            background-color: #218838;
         }
         #stop {
             background-color: #dc3545;
@@ -192,6 +251,26 @@
 
             <button id="connect">Connect Robot</button>
 
+            <div class="settings-panel">
+                <button id="settings-toggle" class="settings-toggle">
+                    <span>Settings</span>
+                    <svg class="chevron" viewBox="0 0 24 24" width="24" height="24">
+                        <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                </button>
+                <div class="settings-content" style="display: none;">
+                    <div class="setting-group">
+                        <label for="jog-velocity">Jog Velocity (mm/s):</label>
+                        <input type="number" id="jog-velocity" min="1" max="100" step="1" value="20">
+                    </div>
+                    <div class="setting-group">
+                        <label for="velocity-timeout">Velocity Timeout (s):</label>
+                        <input type="number" id="velocity-timeout" min="0.01" max="1" step="0.01" value="0.05">
+                    </div>
+                    <button id="update-settings">Update Settings</button>
+                </div>
+            </div>
+
             <div class="axis-controls">
                 <div class="axis-group">
                     <h3>X Axis</h3>
@@ -231,6 +310,10 @@
         let frameCount = 0;
         let lastFrameTime = Date.now();
         let isRobotConnected = false;
+        let currentSettings = {
+            jog_velocity: 20,
+            velocity_timeout: 0.05
+        };
 
         // Status management
         function updateRobotStatus(status) {
@@ -282,15 +365,81 @@
         }
 
         function toggleControlButtons(disabled) {
-            const buttons = document.querySelectorAll('button:not(#connect):not(#reset-error):not(#retry-connection)');
+            const buttons = document.querySelectorAll('button:not(#connect):not(#reset-error):not(#retry-connection):not(#settings-toggle):not(#update-settings)');
             buttons.forEach(button => {
                 button.disabled = disabled;
             });
         }
 
+        // Settings management
+        async function loadSettings() {
+            try {
+                const response = await fetch('/settings');
+                const settings = await response.json();
+                
+                document.getElementById('jog-velocity').value = settings.jog_velocity;
+                document.getElementById('velocity-timeout').value = settings.velocity_timeout;
+                currentSettings = settings;
+            } catch (error) {
+                console.error('Failed to load settings:', error);
+            }
+        }
+
+        async function updateSettings() {
+            const jogVelocity = parseFloat(document.getElementById('jog-velocity').value);
+            const velocityTimeout = parseFloat(document.getElementById('velocity-timeout').value);
+
+            if (isNaN(jogVelocity) || isNaN(velocityTimeout)) {
+                alert('Please enter valid numbers for all settings');
+                return;
+            }
+
+            const settings = {
+                jog_velocity: jogVelocity,
+                velocity_timeout: velocityTimeout
+            };
+
+            try {
+                const response = await fetch('/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(settings)
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    currentSettings = settings;
+                    alert('Settings updated successfully');
+                } else {
+                    alert('Failed to update settings: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Failed to update settings:', error);
+                alert('Failed to update settings: ' + error.message);
+            }
+        }
+
+        // API request helper
+        async function sendRequest(endpoint, data = {}) {
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                return await response.json();
+            } catch (error) {
+                console.error(`Request to ${endpoint} failed:`, error);
+                return { success: false, error: error.message };
+            }
+        }
+
         // Socket event handlers
         socket.on('connect', () => {
             updateStreamStatus('connected');
+            loadSettings();
         });
 
         socket.on('disconnect', () => {
@@ -319,30 +468,14 @@
             img.src = 'data:image/jpeg;base64,' + data.frame;
         });
 
-        // API request helper
-        async function sendRequest(endpoint, data = {}) {
-            try {
-                const response = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(data)
-                });
-                return await response.json();
-            } catch (error) {
-                console.error(`Request to ${endpoint} failed:`, error);
-                return { success: false, error: error.message };
-            }
-        }
-
-        // Error handling
-        async function handleErrorReset() {
-            const result = await sendRequest('/reset_error');
-            if (!result.success) {
-                alert('Failed to reset error: ' + (result.error || 'Unknown error'));
-            }
-        }
-
         // Event listeners
+        document.getElementById('settings-toggle').addEventListener('click', function() {
+            const content = document.querySelector('.settings-content');
+            const isHidden = content.style.display === 'none';
+            content.style.display = isHidden ? 'block' : 'none';
+            this.classList.toggle('open', isHidden);
+        });
+
         document.getElementById('connect').addEventListener('click', async () => {
             const button = document.getElementById('connect');
             button.disabled = true;
@@ -354,10 +487,18 @@
             }
         });
 
-        document.getElementById('reset-error').addEventListener('click', handleErrorReset);
+        document.getElementById('reset-error').addEventListener('click', async () => {
+            const result = await sendRequest('/reset_error');
+            if (!result.success) {
+                alert('Failed to reset error: ' + (result.error || 'Unknown error'));
+            }
+        });
+
         document.getElementById('retry-connection').addEventListener('click', () => {
             document.getElementById('connect').click();
         });
+
+        document.getElementById('update-settings').addEventListener('click', updateSettings);
 
         // Jog controls
         const jogAxes = [
@@ -410,6 +551,7 @@
 
         // Initialize UI
         toggleControlButtons(true);
+        loadSettings();
     </script>
 </body>
 </html>

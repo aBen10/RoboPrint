@@ -16,9 +16,6 @@ import atexit
 import netifaces
 import colorama
 from colorama import Fore, Style
-from eventlet.green import threading as green_threading
-from eventlet.green import socket as green_socket
-import eventlet.green.time as green_time
 
 # Initialize colorama for colored terminal output
 colorama.init()
@@ -34,33 +31,24 @@ def get_ip_addresses():
     """Get all IP addresses for the device"""
     addresses = []
     try:
-        # Get all network interfaces
         interfaces = netifaces.interfaces()
-        
         for iface in interfaces:
-            # Skip loopback interface
             if iface.startswith('lo'):
                 continue
-            
-            # Get addresses for this interface
             addrs = netifaces.ifaddresses(iface)
-            
-            # Get IPv4 addresses
             if netifaces.AF_INET in addrs:
                 for addr in addrs[netifaces.AF_INET]:
                     ip = addr['addr']
-                    # Skip localhost
                     if not ip.startswith('127.'):
                         addresses.append((iface, ip))
     except Exception as e:
         logger.error(f"Error getting IP addresses: {e}")
-    
     return addresses
 
 class Camera:
     def __init__(self):
         self.picam2 = None
-        self.lock = green_threading.Lock()
+        self.lock = eventlet.green.threading.Lock()
         self.frame_count = 0
         self.running = False
         self.last_frame = None
@@ -75,23 +63,19 @@ class Camera:
                     self.cleanup()
                 
                 self.picam2 = Picamera2()
-                
                 config = self.picam2.create_still_configuration(
                     main={"size": (640, 480), "format": "RGB888"},
                     buffer_count=4
                 )
-                
                 self.picam2.configure(config)
                 print(f"{Fore.GREEN}Camera configuration successful{Style.RESET_ALL}")
                 
                 self.picam2.start()
                 print(f"{Fore.GREEN}Camera started{Style.RESET_ALL}")
                 
-                # Allow camera to warm up
                 eventlet.sleep(2)
                 
                 self.running = True
-                # Start capture using eventlet
                 if self.capture_greenlet:
                     self.capture_greenlet.kill()
                 self.capture_greenlet = eventlet.spawn(self._capture_loop)
@@ -106,8 +90,6 @@ class Camera:
         while self.running:
             try:
                 frame = self.picam2.capture_array()
-                
-                # Process frame
                 _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
                 self.last_frame = base64.b64encode(buffer).decode('utf-8')
                 
@@ -115,7 +97,7 @@ class Camera:
                 if self.frame_count % 300 == 0:
                     print(f"{Fore.CYAN}Captured frame {self.frame_count}{Style.RESET_ALL}")
                 
-                eventlet.sleep(0.033)  # ~30 FPS
+                eventlet.sleep(0.033)
                 
             except Exception as e:
                 print(f"{Fore.RED}Frame capture error: {e}{Style.RESET_ALL}")
@@ -146,8 +128,28 @@ class RobotConnection:
         self.port = port
         self.socket = None
         self.is_connected = False
-        self.lock = green_threading.Lock()
+        self.lock = eventlet.green.threading.Lock()
         self.monitor_greenlet = None
+        # Settings
+        self.velocity_timeout = 0.2  # seconds
+        self.jog_velocity = 20.0      # mm/s
+        self.settings_lock = eventlet.green.threading.Lock()
+
+    def get_settings(self):
+        with self.settings_lock:
+            return {
+                "velocity_timeout": self.velocity_timeout,
+                "jog_velocity": self.jog_velocity
+            }
+
+    def update_settings(self, settings):
+        with self.settings_lock:
+            if 'velocity_timeout' in settings:
+                self.velocity_timeout = float(settings['velocity_timeout'])
+                self._send_command(f"SetVelTimeout({self.velocity_timeout})")
+            
+            if 'jog_velocity' in settings:
+                self.jog_velocity = float(settings['jog_velocity'])
 
     def connect(self):
         with self.lock:
@@ -155,17 +157,19 @@ class RobotConnection:
                 if self.is_connected:
                     return True
                 
-                self.socket = green_socket.socket(green_socket.AF_INET, green_socket.SOCK_STREAM)
+                self.socket = eventlet.green.socket.socket(
+                    eventlet.green.socket.AF_INET, 
+                    eventlet.green.socket.SOCK_STREAM
+                )
                 self.socket.settimeout(0.1)
                 self.socket.connect((self.ip, self.port))
                 self.is_connected = True
                 
                 # Initialize robot
                 self._send_command("ActivateRobot")
-                self._send_command("SetVelTimeout(0.05)")
+                self._send_command(f"SetVelTimeout({self.velocity_timeout})")
                 self._send_command("Home")
                 
-                # Start status monitoring using eventlet
                 if self.monitor_greenlet:
                     self.monitor_greenlet.kill()
                 self.monitor_greenlet = eventlet.spawn(self._monitor_status)
@@ -194,6 +198,13 @@ class RobotConnection:
                 return False
             return self._send_command(cmd)
 
+    def jog(self, x, y, z):
+        with self.settings_lock:
+            x_vel = float(x) * self.jog_velocity
+            y_vel = float(y) * self.jog_velocity
+            z_vel = float(z) * self.jog_velocity
+            return self.send_command(f"MoveLinVelWrf({x_vel}, {y_vel}, {z_vel}, 0, 0, 0)")
+
     def _monitor_status(self):
         while self.is_connected:
             try:
@@ -207,7 +218,7 @@ class RobotConnection:
                             error_state = int(status_parts[3])
                             socketio.emit('robot_status', 
                                         {'status': 'error' if error_state == 1 else 'connected'})
-            except green_socket.timeout:
+            except eventlet.green.socket.timeout:
                 pass
             except Exception as e:
                 print(f"{Fore.YELLOW}Status monitoring error: {e}{Style.RESET_ALL}")
@@ -227,6 +238,7 @@ class RobotConnection:
                 finally:
                     self.socket = None
                     self.is_connected = False
+
 app = Flask(__name__)
 socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins='*')
 camera = None
@@ -245,12 +257,12 @@ def stream_frames():
                     socketio.emit('video_frame', {'frame': frame})
                     frame_count += 1
                     
-                    if frame_count % 300 == 0:  # Log every 300 frames
+                    if frame_count % 300 == 0:
                         elapsed = time.time() - start_time
                         fps = frame_count / elapsed
                         print(f"{Fore.CYAN}Streaming at {fps:.1f} FPS{Style.RESET_ALL}")
             
-            eventlet.sleep(0.033)  # Target 30 FPS
+            eventlet.sleep(0.033)
         except Exception as e:
             print(f"{Fore.RED}Streaming error: {e}{Style.RESET_ALL}")
             eventlet.sleep(1)
@@ -263,13 +275,20 @@ def index():
 def connect():
     return jsonify({"success": robot.connect()})
 
-# @app.route('/reset_error', methods=['POST'])
-# def reset_error():
-#     if not robot.is_connected:
-#         return jsonify({"success": False, "error": "Not connected"})
-#     success = (robot.send_command("ResetError") and 
-#               robot.send_command("ResumeMotion"))
-#     return jsonify({"success": success})
+@app.route('/reset_error', methods=['POST'])
+def reset_error():
+    if not robot.is_connected:
+        return jsonify({"success": False, "error": "Robot not connected"})
+    
+    try:
+        success = robot.send_command("ResetError")
+        if success:
+            success = robot.send_command("ResumeMotion")
+            print(f"{Fore.GREEN}Reset error and resumed motion{Style.RESET_ALL}")
+        return jsonify({"success": success})
+    except Exception as e:
+        print(f"{Fore.RED}Error resetting robot: {e}{Style.RESET_ALL}")
+        return jsonify({"success": False, "error": str(e)})
 
 @app.route('/jog', methods=['POST'])
 def jog():
@@ -278,12 +297,11 @@ def jog():
     
     try:
         data = request.get_json()
-        x = float(data.get('x', 0)) * 20  # 20mm/s max velocity
-        y = float(data.get('y', 0)) * 20
-        z = float(data.get('z', 0)) * 20
-        
-        cmd = f"MoveLinVelWrf({x}, {y}, {z}, 0, 0, 0)"
-        success = robot.send_command(cmd)
+        success = robot.jog(
+            data.get('x', 0),
+            data.get('y', 0),
+            data.get('z', 0)
+        )
         return jsonify({"success": success})
     except Exception as e:
         print(f"{Fore.RED}Jog command error: {e}{Style.RESET_ALL}")
@@ -293,7 +311,7 @@ def jog():
 def stop():
     if not robot.is_connected:
         return jsonify({"success": False, "error": "Not connected"})
-    success = robot.send_command("MoveLinVelWrf(0, 0, 0, 0, 0, 0)")
+    success = robot.jog(0, 0, 0)
     return jsonify({"success": success})
 
 @app.route('/gripper', methods=['POST'])
@@ -313,24 +331,19 @@ def gripper():
     except Exception as e:
         print(f"{Fore.RED}Gripper command error: {e}{Style.RESET_ALL}")
         return jsonify({"success": False, "error": str(e)})
-    
-@app.route('/reset_error', methods=['POST'])
-def reset_error():
-    if not robot.is_connected:
-        return jsonify({"success": False, "error": "Robot not connected"})
+
+@app.route('/settings', methods=['GET', 'POST'])
+def settings():
+    if request.method == 'GET':
+        return jsonify(robot.get_settings())
     
     try:
-        # First send ResetError command
-        success = robot.send_command("ResetError")
-        if success:
-            # Then send ResumeMotion command
-            success = robot.send_command("ResumeMotion")
-            print(f"{Fore.GREEN}Reset error and resumed motion{Style.RESET_ALL}")
-        return jsonify({"success": success})
+        settings = request.get_json()
+        robot.update_settings(settings)
+        return jsonify({"success": True})
     except Exception as e:
-        print(f"{Fore.RED}Error resetting robot: {e}{Style.RESET_ALL}")
+        print(f"{Fore.RED}Settings update error: {e}{Style.RESET_ALL}")
         return jsonify({"success": False, "error": str(e)})
-
 
 def cleanup():
     print(f"{Fore.YELLOW}Cleaning up resources...{Style.RESET_ALL}")
@@ -342,12 +355,10 @@ atexit.register(cleanup)
 
 if __name__ == '__main__':
     try:
-        # Print fancy header
         print(f"\n{Fore.CYAN}{'='*50}")
         print("Robot Control Server")
         print(f"{'='*50}{Style.RESET_ALL}\n")
 
-        # Get and display IP addresses
         addresses = get_ip_addresses()
         print(f"{Fore.GREEN}Server can be accessed at:{Style.RESET_ALL}")
         print(f"{Fore.YELLOW}Local access:{Style.RESET_ALL} http://localhost:5000")
@@ -355,11 +366,8 @@ if __name__ == '__main__':
             print(f"{Fore.YELLOW}Network access ({iface}):{Style.RESET_ALL} http://{ip}:5000")
         print()
 
-        # Initialize camera after eventlet monkey patching
         camera = Camera()
-        # Start streaming in background
         eventlet.spawn(stream_frames)
-        # Run server
         print(f"{Fore.GREEN}Starting server...{Style.RESET_ALL}")
         socketio.run(
             app, 
